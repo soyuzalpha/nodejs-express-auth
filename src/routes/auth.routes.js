@@ -7,33 +7,34 @@ const db = require("../../db");
 
 // SIGN UP (fake, simpan ke array)
 router.post("/signup", (req, res) => {
-  const { name, email, password } = req.body;
+  try {
+    const { name, email, password } = req.body ?? {};
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: "All fields are required" });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const exists = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+
+    if (exists) {
+      return res.status(409).json({ message: "Email already registered" });
+    }
+
+    db.prepare(
+      `INSERT INTO users (name, email, password, role)
+       VALUES (?, ?, ?, 'user')`,
+    ).run(name, email, password);
+
+    res.status(201).json({ message: "User registered successfully" });
+  } catch (error) {
+    console.error("SIGNUP ERROR:", error);
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  const exists = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
-
-  if (exists) {
-    return res.status(409).json({ message: "Email already registered" });
-  }
-
-  db.prepare(
-    `
-    INSERT INTO users (name, email, password, role)
-    VALUES (?, ?, ?, 'user')
-  `,
-  ).run(name, email, password);
-
-  res.status(201).json({ message: "User registered successfully" });
 });
 
 // LOGIN
 router.post("/login", (req, res) => {
   const { email, password } = req.body;
-
-  console.log({ email, password });
 
   const user = db
     .prepare(
@@ -63,6 +64,8 @@ router.post("/forgot-password", (req, res) => {
   const { email } = req.body;
 
   const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+
+  console.log({user});
 
   if (!user) {
     return res.status(404).json({ message: "User not found" });
